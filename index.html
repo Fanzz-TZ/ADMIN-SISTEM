@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin • Key</title>
+    <style>
+        body { margin: 0; min-height: 100vh; background: #000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #fff; display: flex; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
+
+        .container { background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(20px); border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.1); padding: 40px 30px; width: 100%; max-width: 420px; text-align: center; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5); animation: fadeScale 0.8s ease-out forwards; opacity: 0; }
+
+        @keyframes fadeScale { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        h2 { font-size: 28px; font-weight: 700; margin: 0 0 10px 0; }
+        .subtitle { font-size: 17px; opacity: 0.7; margin-bottom: 30px; }
+
+        input[type="text"] { width: 100%; padding: 18px; margin: 20px 0; background: rgba(50, 50, 50, 0.6); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 16px; color: white; font-size: 19px; text-align: center; box-sizing: border-box; }
+        input[type="text"]:focus { outline: none; border-color: #007AFF; box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.3); }
+
+        .btn { margin: 12px 0; padding: 16px; border: none; border-radius: 16px; font-size: 19px; font-weight: 600; cursor: pointer; width: 100%; transition: all 0.2s ease; }
+        .save-btn { background: #007AFF; color: white; }
+        .message-btn { background: #FF9500; color: white; }
+        .expire-btn { background: #FF3B30; color: white; }
+        .btn:active { transform: scale(0.96); }
+
+        .message {
+            margin-top: 20px;
+            padding: 18px 24px;
+            border-radius: 18px;
+            font-weight: 600;
+            font-size: 17px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.5s ease;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 100%;
+            box-sizing: border-box;
+            animation: slideIn 0.6s ease-out forwards;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .success {
+            background: rgba(48, 209, 88, 0.25);
+            border-color: rgba(48, 209, 88, 0.4);
+            color: #30D158;
+        }
+
+        .warning {
+            background: rgba(255, 149, 0, 0.25);
+            border-color: rgba(255, 149, 0, 0.4);
+            color: #FF9500;
+        }
+
+        .error {
+            background: rgba(255, 59, 48, 0.25);
+            border-color: rgba(255, 59, 48, 0.4);
+            color: #FF3B30;
+        }
+
+        /* Optional: Tambah icon di depan pesan */
+        .message::before {
+            font-size: 22px;
+            margin-right: 12px;
+            vertical-align: middle;
+        }
+
+        .success::before { content: "✓ "; }
+        .warning::before { content: "⚠ "; }
+        .error::before { content: "✕ "; }
+        
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Admin Panel</h2>
+        <p class="subtitle">Kelola activation key & kirim pesan ke semua user secara realtime</p>
+
+        <input type="text" id="keyInput" placeholder="Ketik activation key">
+
+        <button class="btn save-btn" id="saveBtn">Kirim Key ke User</button>
+
+        <input type="text" id="messageInput" placeholder="Ketik pesan khusus untuk user">
+        <button class="btn message-btn" id="messageBtn">Kirim Pesan ke User</button>
+
+        <button class="btn expire-btn" id="expireBtn">Expired Key</button>
+
+        <div class="current-key" id="currentKeyDisplay">Memuat...</div>
+        <div class="last-update" id="lastUpdate">Memuat...</div>
+
+        <div class="message" id="message"></div>
+
+        <div class="back-link">
+            <a href="index.html">← Lihat Halaman User</a>
+        </div>
+
+        <div class="footer">
+            Activation Key System • Admin Dashboard<br>© 2026
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // GANTI DENGAN CONFIG FIREBASE ANDA SENDIRI
+        const firebaseConfig = {
+            apiKey: "AIzaSyC0PmEdkLLOiK51v1EqakuVQFc95AL5LMk",
+  authDomain: "fanzz-tzz.firebaseapp.com",
+  databaseURL: "https://fanzz-tzz-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "fanzz-tzz",
+  storageBucket: "fanzz-tzz.firebasestorage.app",
+  messagingSenderId: "623714665294",
+  appId: "1:623714665294:web:b572cf88dcb495932f141f",
+  measurementId: "G-Q2Z2DW78V8"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const keyDocRef = doc(db, "activation", "currentKey");
+
+        const keyInput = document.getElementById('keyInput');
+        const messageInput = document.getElementById('messageInput');
+        const saveBtn = document.getElementById('saveBtn');
+        const messageBtn = document.getElementById('messageBtn');
+        const expireBtn = document.getElementById('expireBtn');
+        const message = document.getElementById('message');
+        const currentKeyDisplay = document.getElementById('currentKeyDisplay');
+        const lastUpdate = document.getElementById('lastUpdate');
+
+        // Kirim Key + otomatis trigger notifikasi biasa di user
+        saveBtn.addEventListener('click', async () => {
+            const key = keyInput.value.trim();
+            if (!key) return message.innerHTML = '<div class="message warning">Key tidak boleh kosong!</div>';
+
+            await setDoc(keyDocRef, {
+                key: key,
+                updatedAt: serverTimestamp(),
+                notify: true  // tetap trigger notifikasi biasa "Key baru tersedia!"
+            });
+            message.innerHTML = '<div class="message success">Key berhasil dikirim + notifikasi otomatis!</div>';
+        });
+
+        // Kirim Pesan Custom (muncul di atas layar user)
+        messageBtn.addEventListener('click', async () => {
+            const customMsg = messageInput.value.trim();
+            if (!customMsg) return message.innerHTML = '<div class="message warning">Pesan tidak boleh kosong!</div>';
+
+            await setDoc(keyDocRef, {
+                customMessage: customMsg,
+                messageAt: serverTimestamp()
+            }, { merge: true });
+
+            message.innerHTML = '<div class="message success">Pesan dikirim: "' + customMsg + '"</div>';
+            messageInput.value = '';
+        });
+
+        // Expired Key
+        expireBtn.addEventListener('click', async () => {
+            if (!confirm("Yakin ingin meng-expired key? Semua user akan kehilangan akses.")) return;
+
+            await deleteDoc(keyDocRef);
+            keyInput.value = '';
+            message.innerHTML = '<div class="message error">Key telah di-expired!</div>';
+        });
+
+        // Realtime listener untuk admin
+        onSnapshot(keyDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.key) {
+                    keyInput.value = data.key;
+                    currentKeyDisplay.textContent = data.key;
+                    currentKeyDisplay.style.borderColor = '#30D158';
+                    lastUpdate.textContent = data.updatedAt ? 'Terakhir dikirim: ' + data.updatedAt.toDate().toLocaleString('id-ID') : '';
+                }
+            } else {
+                currentKeyDisplay.textContent = 'Tidak ada key aktif (expired)';
+                currentKeyDisplay.style.borderColor = '#FF3B30';
+                lastUpdate.textContent = 'Status: Expired';
+            }
+        });
+    </script>
+</body>
+</html>
